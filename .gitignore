@@ -1,0 +1,6 @@
+*.csv
+*.xlsx
+*.txt
+*.zip
+spatial_data/
+timeseries_data/
