@@ -29,7 +29,7 @@ ui <- page_navbar(
       inputId = "ava_xlsx",
       label = "Uploading GoldSim Output:",
       placeholder = "RJ WLBM Master Spreadsheet - v**.xlsx",
-      accept = c(".xlsx"),
+      accept = c(".xlsx")
     ),
     
     ### `date_range` ----
@@ -37,6 +37,17 @@ ui <- page_navbar(
                    label = "Date Interval of Interest (2024-2039):",
                    start = "2025-05-01", end = "2038-04-30", min = "2024-07-01",
                    max = "2039-01-01"),
+    
+    ### `wyear_month` ----
+    tooltip(
+      selectInput(
+        inputId = "wyear_month",
+        label = "Water Year Start:",
+        choices = month.abb,
+        selected = "May"
+      ),
+      "Specifying beging month for water year.For example, May is equivalent to May 1st to Apr 30th."
+    ),
     
     ### `storage_select` ----
     selectInput(
@@ -179,7 +190,7 @@ server <- function(input, output, session) {
   
   shinyalert(
     title = 'Welcome to the Dashboard!',
-    text = "Please upload the GoldSim output. Once uploaded, you can review the flow sheets and select your flow line of interest to plot the daily flow, concentrations, and loads. For consistency, it is recommended to choose dates from May 1st to April 30th.",
+    text = "Please upload the GoldSim output. Once uploaded, you can review the flow sheets and select your flow line of interest to plot the daily flow, concentrations, and loads.",
     type = "",
     closeOnEsc = TRUE,
     closeOnClickOutside = TRUE
@@ -807,6 +818,7 @@ server <- function(input, output, session) {
   observeEvent(
     list(
       input$date_range[1], input$date_range[2],
+      input$wyear_month,
       all_wlbm_data$main_pit, all_wlbm_data$interm_pit,
       all_wlbm_data$main_wrd, all_wlbm_data$interm_wrd,
       all_wlbm_data$gwtp, all_wlbm_data$pwtp, all_wlbm_data$ebfr_us,
@@ -818,6 +830,10 @@ server <- function(input, output, session) {
           all_wlbm_data$main_wrd, all_wlbm_data$interm_wrd,
           all_wlbm_data$gwtp, all_wlbm_data$pwtp, all_wlbm_data$ebfr_us,
           all_wlbm_data$ebfr_ds, all_wlbm_data$div_channel, all_wlbm_data$gs)
+      month_idx <- which(month.abb == input$wyear_month)
+      subtlt <- paste0("Water year: ", input$wyear_month, "-",
+                      ifelse(month_idx - 1  == 0, "Dec", month.abb[month_idx-1]),
+                      ". Incomplete years ignored.")
       show_modal_spinner(spin = "cube-grid",
                          text = "Populating Flowsheet ...")
       summary_df <- all_wlbm_data$main_pit$inflow %>%
@@ -850,7 +866,7 @@ server <- function(input, output, session) {
                       Date <= input$date_range[2]) %>%
         mutate(Year = year(Date),
                Month = month(Date),
-               Water_Year = ifelse(Month <= 4, Year - 1, Year)) %>%
+               Water_Year = ifelse(Month < month_idx, Year - 1, Year)) %>%
         group_by(Flow_Name, Water_Year) %>%
         summarise(
           num_obs = n(),
@@ -909,7 +925,7 @@ server <- function(input, output, session) {
                            breaks = seq(0, 4098, 100),
                            minor_breaks = seq(0, 4098, 50)) +
         labs(title = "Mean Water Year Flow (L/s)",
-             subtitle = paste("Water year: May 1 to April 30. Incomplete years ignored.")) +
+             subtitle = subtlt) +
         theme_void() +
         theme(plot.title = element_text(size = 24, face = "bold", hjust = 0.5),
               plot.subtitle = element_text(hjust = 0.5, size = 16))
