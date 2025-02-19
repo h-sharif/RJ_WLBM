@@ -1,6 +1,6 @@
-*.csv
 *.xlsx
 *.txt
 *.zip
-spatial_data/
-timeseries_data/
+app_test.R
+populated.pdf
+shinyapp_viz_geek.R
