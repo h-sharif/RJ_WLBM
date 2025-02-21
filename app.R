@@ -35,7 +35,7 @@ ui <- page_navbar(
     ### `date_range` ----
     dateRangeInput(inputId = "date_range", 
                    label = "Date Interval of Interest (2024-2039):",
-                   start = "2025-05-01", end = "2038-04-30", min = "2024-07-01",
+                   start = "2025-07-01", end = "2028-06-30", min = "2024-07-01",
                    max = "2039-01-01"),
     
     ### `wyear_month` ----
@@ -44,7 +44,7 @@ ui <- page_navbar(
         inputId = "wyear_month",
         label = "Water Year Start:",
         choices = month.abb,
-        selected = "May"
+        selected = "Jul"
       ),
       "Specifying beging month for water year.For example, May is equivalent to May 1st to Apr 30th."
     ),
@@ -890,7 +890,7 @@ server <- function(input, output, session) {
         mutate(Flow = Flow * (24*3600)) %>%
         mutate(Year = year(Date),
                Month = month(Date),
-               Water_Year = ifelse(Month <= 4, Year - 1, Year)) %>%
+               Water_Year = ifelse(Month < month_idx, Year - 1, Year)) %>%
         group_by(Flow_Name, Water_Year) %>%
         summarise(
           num_obs = n(),
