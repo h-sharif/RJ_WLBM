@@ -924,7 +924,7 @@ server <- function(input, output, session) {
         scale_y_continuous(limits = c(0, 4098),
                            breaks = seq(0, 4098, 100),
                            minor_breaks = seq(0, 4098, 50)) +
-        labs(title = "Mean Water Year Flow (L/s)",
+        labs(title = "Average Annual Flow (L/s)",
              subtitle = subtlt) +
         theme_void() +
         theme(plot.title = element_text(size = 24, face = "bold", hjust = 0.5),
@@ -1131,7 +1131,7 @@ server <- function(input, output, session) {
   # Rendering First Flow Chart ----
   output$flowchart <- renderUI({
     tags$iframe(style="height:100%; width:100%",
-                src="RJ WLBM Flowsheet in REV C.pdf")
+                src="RJ WLBM Flowsheet.pdf")
   })
   
   # ObserveEvent 04: Date Labels ----
