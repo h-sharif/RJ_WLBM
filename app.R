@@ -38,15 +38,52 @@ ui <- page_navbar(
                    start = "2025-07-01", end = "2028-06-30", min = "2024-07-01",
                    max = "2039-01-01"),
     
-    ### `wyear_month` ----
-    tooltip(
-      selectInput(
-        inputId = "wyear_month",
-        label = "Water Year Start:",
-        choices = month.abb,
-        selected = "Jul"
+    dropdownButton(
+      ### `wyear_month` ----
+      tooltip(
+        selectInput(
+          inputId = "wyear_month",
+          label = "Water Year Start:",
+          choices = month.abb,
+          selected = "Jul"
+        ),
+        "Specifying beging month for water year.For example, May is equivalent to May 1st to Apr 30th."
       ),
-      "Specifying beging month for water year.For example, May is equivalent to May 1st to Apr 30th."
+      
+      ### `var_flowchart` ----
+      selectInput(
+        inputId = "var_flowchart",
+        label = "Variable of Interest:",
+        choices = c(
+          "Water", "SO4", "Ca", "Mg", "Al", "Fe", "Cu",
+          "Co", "Mn", "Ni", "U", "Zn", "Acidity"
+        ),
+        multiple = FALSE,
+        selected = "Water"
+      ),
+      
+      ### `placeholder_unit_flowchart` ----
+      uiOutput(
+        outputId = "placeholder_unit_flowchart"
+      ),
+      circle = FALSE,
+      status = "primary",
+      size = "sm",
+      icon = icon(name = "sliders", class = "fa-light"),
+      label = "Flowchart Settings",
+      tooltip = "Please select the variable of interest, its unit, and the water year definition (starting month).",
+      right = TRUE,
+      width = 200
+    ),
+    
+    ### `up_flowchart` ----
+    actionBttn(
+      inputId = "up_flowchart",
+      label = "Update Flowchart",
+      style = "simple",
+      color = "danger",
+      size = "sm",
+      icon = icon("rotate", class = "fa-light")
     ),
     
     ### `storage_select` ----
@@ -276,6 +313,16 @@ server <- function(input, output, session) {
       input$ava_xlsx$datapath,
       sheet = "Ponds_Water",
       col_types = c("date", rep("numeric", 6))
+    ) %>%
+      na.omit() %>%
+      mutate_if(is.numeric, function(x) (lead(x, 1) - x) / (24 * 3600)) %>%
+      dplyr::filter(row_number() != n())
+    
+    rename_vec <- 
+    ponds_water_load <- read_excel(
+      input$ava_xlsx$datapath,
+      sheet = "Ponds_Load",
+      col_types = c("date", rep("numeric", 72))
     ) %>%
       na.omit() %>%
       mutate_if(is.numeric, function(x) (lead(x, 1) - x) / (24 * 3600)) %>%
@@ -809,27 +856,44 @@ server <- function(input, output, session) {
     dplyr::filter(Flow_Name != "",
                   !is.na(Flow_Name))
   
-  # ObserveEvent Flowchart ----
+  # ObserveEvent 01-01: Populate unit options ----
+  observeEvent(input$var_flowchart, {
+    req(input$var_flowchart)
+    if (input$var_flowchart == "Water") {
+      ### `flowchart_unit` ----
+      output$placeholder_unit_flowchart <- renderUI({
+        selectInput(
+          inputId = "flowchart_unit",
+          label = "Change Unit",
+          choices = c("L/s", "ML/year")
+        )
+      })
+    } else {
+      output$placeholder_unit_flowchart <- renderUI({
+        selectInput(
+          inputId = "flowchart_unit",
+          label = "Change Unit",
+          choices = c("kg/year", "t/year")
+        )
+      })
+    }
+  }, priority = 9)
+  
+  # ObserveEvent 01-02 Flowchart ----
   # For now it only shows water flux in L/s
   # Filter all_wlbm data based on dates
   # Calculate Annual Flows in L/s
   # Find the location of flow sheet
   # Add title and values
   observeEvent(
-    list(
-      input$date_range[1], input$date_range[2],
-      input$wyear_month,
-      all_wlbm_data$main_pit, all_wlbm_data$interm_pit,
-      all_wlbm_data$main_wrd, all_wlbm_data$interm_wrd,
-      all_wlbm_data$gwtp, all_wlbm_data$pwtp, all_wlbm_data$ebfr_us,
-      all_wlbm_data$ebfr_ds, all_wlbm_data$div_channel,
-      all_wlbm_data$gs, all_wlbm_data$ponds_water
-    ),
+    input$up_flowchart,
     {
       req(all_wlbm_data$main_pit, all_wlbm_data$interm_pit,
           all_wlbm_data$main_wrd, all_wlbm_data$interm_wrd,
           all_wlbm_data$gwtp, all_wlbm_data$pwtp, all_wlbm_data$ebfr_us,
-          all_wlbm_data$ebfr_ds, all_wlbm_data$div_channel, all_wlbm_data$gs)
+          all_wlbm_data$ebfr_ds, all_wlbm_data$div_channel, all_wlbm_data$gs,
+          input$date_range, input$wyear_month, input$var_flowchart,
+          input$flowchart_unit)
       month_idx <- which(month.abb == input$wyear_month)
       subtlt <- paste0("Water year: ", input$wyear_month, "-",
                       ifelse(month_idx - 1  == 0, "Dec", month.abb[month_idx-1]),
@@ -906,7 +970,7 @@ server <- function(input, output, session) {
         left_join(flowsheet_loc, by = "Flow_Name")
       
       plt <- ggplot() +
-        background_image(png::readPNG("www/RJ WLBM Flowsheet Without Backgound.png")) +
+        background_image(png::readPNG("www/RJ WLBM Flowsheet With Backgound.png")) +
         geom_text(data = summary_df, aes(x = X, y = Y, 
                                          label = round(Mean_WaterYear_Flow_Ls, 1)),
                   size = 8/.pt) +
@@ -951,7 +1015,7 @@ server <- function(input, output, session) {
   lookup_df <- fread("Flow_to_Load_LookupTable.csv") %>%
     mutate_if(is.character, function(x) ifelse(x == "", NA, x))
   
-  # ObserveEvent 01: Selection of Storage & Constituents ----
+  # ObserveEvent 02: Selection of Storage & Constituents ----
   # Populate the fluxes & `wlbm_df`
   observeEvent(list(input$storage_select, input$consit, input$ava_xlsx), {
     req(input$storage_select, input$consit,
