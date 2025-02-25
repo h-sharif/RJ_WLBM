@@ -9,6 +9,7 @@ library(shinyalert)
 library(readxl)
 library(ggnewscale)
 library(ggpubr)
+library(scales)
 theme_set(theme_bw())
 
 # UI ---------------------------------------------------------------------------
@@ -38,42 +39,35 @@ ui <- page_navbar(
                    start = "2025-07-01", end = "2028-06-30", min = "2024-07-01",
                    max = "2039-01-01"),
     
-    dropdownButton(
-      ### `wyear_month` ----
-      tooltip(
-        selectInput(
-          inputId = "wyear_month",
-          label = "Water Year Start:",
-          choices = month.abb,
-          selected = "Jul"
-        ),
-        "Specifying beging month for water year.For example, May is equivalent to May 1st to Apr 30th."
-      ),
-      
-      ### `var_flowchart` ----
+    h5("Flowsheet Settings"),
+    ### `wyear_month` ----
+    tooltip(
       selectInput(
-        inputId = "var_flowchart",
-        label = "Variable of Interest:",
-        choices = c(
-          "Water", "SO4", "Ca", "Mg", "Al", "Fe", "Cu",
-          "Co", "Mn", "Ni", "U", "Zn", "Acidity"
-        ),
-        multiple = FALSE,
-        selected = "Water"
+        inputId = "wyear_month",
+        label = "Water Year Start:",
+        choices = month.abb,
+        selected = "Jul"
       ),
-      
-      ### `placeholder_unit_flowchart` ----
-      uiOutput(
-        outputId = "placeholder_unit_flowchart"
+      "Specifying beging month for water year.For example, May is equivalent to May 1st to Apr 30th."
+    ),
+    
+    ### `var_flowchart` ----
+    selectInput(
+      inputId = "var_flowchart",
+      label = "Variable of Interest:",
+      choices = c(
+        "Water", "SO4", "Ca", "Mg", "Al", "Fe", "Cu",
+        "Co", "Mn", "Ni", "U", "Zn", "Acidity"
       ),
-      circle = FALSE,
-      status = "primary",
-      size = "sm",
-      icon = icon(name = "sliders", class = "fa-light"),
-      label = "Flowchart Settings",
-      tooltip = "Please select the variable of interest, its unit, and the water year definition (starting month).",
-      right = TRUE,
-      width = 200
+      multiple = FALSE,
+      selected = "Water"
+    ),
+    
+    ### `flowchart_unit` ----
+    selectInput(
+      inputId = "flowchart_unit",
+      label = "Change Unit",
+      choices = c("L/s", "ML/year")
     ),
     
     ### `up_flowchart` ----
@@ -86,6 +80,7 @@ ui <- page_navbar(
       icon = icon("rotate", class = "fa-light")
     ),
     
+    h5("Daily Plot Settings"),
     ### `storage_select` ----
     selectInput(
       inputId = "storage_select",
@@ -207,6 +202,8 @@ ui <- page_navbar(
 
 # Server -----------------------------------------------------------------------
 server <- function(input, output, session) {
+  my_comma <- scales::label_comma(accuracy = 0.1)
+  
   options(shiny.maxRequestSize=100*1024^2)
   
   # Color palette for constituents
@@ -227,7 +224,7 @@ server <- function(input, output, session) {
   
   shinyalert(
     title = 'Welcome to the Dashboard!',
-    text = "Please upload the GoldSim output. Once uploaded, you can review the flow sheets and select your flow line of interest to plot the daily flow, concentrations, and loads.",
+    text = "Please upload the GoldSim output. Once uploaded, you can generate flowsheets of your interest and visualize daily flow, load, and concentrations for flow lines.",
     type = "",
     closeOnEsc = TRUE,
     closeOnClickOutside = TRUE
@@ -247,7 +244,8 @@ server <- function(input, output, session) {
     ebfr_ds = NULL,
     div_channel = NULL,
     gs = NULL,
-    ponds_water = NULL
+    ponds_water = NULL,
+    ponds_load = NULL
   )
   
   # ObserveEvent 00: Selecting Model Version
@@ -319,7 +317,7 @@ server <- function(input, output, session) {
       dplyr::filter(row_number() != n())
     
     rename_vec <- 
-    ponds_water_load <- read_excel(
+    ponds_load_data <- read_excel(
       input$ava_xlsx$datapath,
       sheet = "Ponds_Load",
       col_types = c("date", rep("numeric", 72))
@@ -665,6 +663,9 @@ server <- function(input, output, session) {
         dplyr::filter(row_number() != n())
     )
     
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Adjusted Upstream Runoff to EBRF US %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     ebfr_us_data <- list(
       inflow = read_excel(
         input$ava_xlsx$datapath,
@@ -674,7 +675,11 @@ server <- function(input, output, session) {
         na.omit() %>%
         mutate(Date = as.Date(Date)) %>%
         mutate_if(is.numeric, function(x) (lead(x, 1) - x) / (24 * 3600)) %>%
-        dplyr::filter(row_number() != n()),
+        dplyr::filter(row_number() != n()) %>%
+        mutate(
+          T_Runoff_EBFR_US = T_Runoff_EBFR_US + T_EWSF_E_Runoff_not_collected +
+            T_WWSF_Q_to_EBFR_Above_GS200
+        ),
       
       outflow = read_excel(
         input$ava_xlsx$datapath,
@@ -694,7 +699,45 @@ server <- function(input, output, session) {
         na.omit() %>%
         mutate(Date = as.Date(Date)) %>%
         mutate_if(is.numeric, function(x) (lead(x, 1) - x)) %>%
-        dplyr::filter(row_number() != n()),
+        dplyr::filter(row_number() != n()) %>%
+        mutate(
+          `T_Runoff_EBFR_US_CT[SO4]` = `T_Runoff_EBFR_US_CT[SO4]` + 
+            `T_EWSF_E_RunoffNotCollected_CT[SO4]` +
+            `T_WWSF_QtoEBFR_Above_GS200_CT[SO4]`,
+          `T_Runoff_EBFR_US_CT[Ca]` = `T_Runoff_EBFR_US_CT[Ca]` + 
+            `T_EWSF_E_RunoffNotCollected_CT[Ca]` +
+            `T_WWSF_QtoEBFR_Above_GS200_CT[Ca]`,
+          `T_Runoff_EBFR_US_CT[Mg]` = `T_Runoff_EBFR_US_CT[Mg]` + 
+            `T_EWSF_E_RunoffNotCollected_CT[Mg]` +
+            `T_WWSF_QtoEBFR_Above_GS200_CT[Mg]`,
+          `T_Runoff_EBFR_US_CT[Al]` = `T_Runoff_EBFR_US_CT[Al]` + 
+            `T_EWSF_E_RunoffNotCollected_CT[Al]` +
+            `T_WWSF_QtoEBFR_Above_GS200_CT[Al]`,
+          `T_Runoff_EBFR_US_CT[Fe]` = `T_Runoff_EBFR_US_CT[Fe]` + 
+            `T_EWSF_E_RunoffNotCollected_CT[Fe]` +
+            `T_WWSF_QtoEBFR_Above_GS200_CT[Fe]`,
+          `T_Runoff_EBFR_US_CT[Cu]` = `T_Runoff_EBFR_US_CT[Cu]` + 
+            `T_EWSF_E_RunoffNotCollected_CT[Cu]` +
+            `T_WWSF_QtoEBFR_Above_GS200_CT[Cu]`,
+          `T_Runoff_EBFR_US_CT[Co]` = `T_Runoff_EBFR_US_CT[Co]` + 
+            `T_EWSF_E_RunoffNotCollected_CT[Co]` +
+            `T_WWSF_QtoEBFR_Above_GS200_CT[Co]`,
+          `T_Runoff_EBFR_US_CT[Mn]` = `T_Runoff_EBFR_US_CT[Mn]` + 
+            `T_EWSF_E_RunoffNotCollected_CT[Mn]` +
+            `T_WWSF_QtoEBFR_Above_GS200_CT[Mn]`,
+          `T_Runoff_EBFR_US_CT[Ni]` = `T_Runoff_EBFR_US_CT[Ni]` + 
+            `T_EWSF_E_RunoffNotCollected_CT[Ni]` +
+            `T_WWSF_QtoEBFR_Above_GS200_CT[Ni]`,
+          `T_Runoff_EBFR_US_CT[U]` = `T_Runoff_EBFR_US_CT[U]` + 
+            `T_EWSF_E_RunoffNotCollected_CT[U]` +
+            `T_WWSF_QtoEBFR_Above_GS200_CT[U]`,
+          `T_Runoff_EBFR_US_CT[Zn]` = `T_Runoff_EBFR_US_CT[Zn]` + 
+            `T_EWSF_E_RunoffNotCollected_CT[Zn]` +
+            `T_WWSF_QtoEBFR_Above_GS200_CT[Zn]`,
+          `T_Runoff_EBFR_US_CT[Acidity]` = `T_Runoff_EBFR_US_CT[Acidity]` + 
+            `T_EWSF_E_RunoffNotCollected_CT[Acidity]` +
+            `T_WWSF_QtoEBFR_Above_GS200_CT[Acidity]`
+        ),
       
       outload = read_excel(
         input$ava_xlsx$datapath,
@@ -846,38 +889,204 @@ server <- function(input, output, session) {
     all_wlbm_data$div_channel <- div_channel_data
     all_wlbm_data$gs <- gs_data
     all_wlbm_data$ponds_water <- ponds_water_data
-    
+    all_wlbm_data$ponds_load <- ponds_load_data
     remove_modal_spinner()
   }, priority = 11)
   
   
+  # Read flowsheet location table ----
   flowsheet_loc <- fread("Flowsheet_Location.csv") %>%
     drop_na(X, Y) %>%
     dplyr::filter(Flow_Name != "",
                   !is.na(Flow_Name))
   
+  # Read look-up table to adjust load column names ----
+  lookup_df <- fread("Flow_to_Load_LookupTable.csv") %>%
+    mutate_if(is.character, function(x) ifelse(x == "", NA, x))
+  
+  cts <- c("SO4", "Ca", "Mg", "Al", "Fe", "Cu",
+           "Co", "Mn", "Ni", "U", "Zn", "Acidity")
+  rename_vec <- lookup_df %>%
+    drop_na(`Load New Name`, `Load Name`) %>%
+    pull(`Load Name`)
+  rename_vec_names <- lookup_df %>%
+    drop_na(`Load New Name`, `Load Name`) %>%
+    pull(`Load New Name`)
+  rename_vec_vf <- paste0(
+    rep(rename_vec, each = 12),
+    "[",
+    rep(cts, length(rename_vec)),
+    "]"
+  )
+  names(rename_vec_vf) <- paste0(
+    rep(rename_vec_names, each = 12),
+    "[",
+    rep(cts, length(rename_vec_names)),
+    "]"
+  )
+  
+  # Fixing missing _CT
+  removed_load_rename_vec <- paste0(
+    rep(c("T_Load_Removed_by_PWTP",
+          "T_Load_Removed_by_GWTP",
+          "T_GW_Load_Build_Up_EBFR_US",
+          "T_GW_Load_Build_Up_Diversion",
+          "T_GW_Load_Build_Up_EBFR_DS"),
+        each = 12),
+    "[",
+    rep(cts, 5),
+    "]"
+  )
+  names(removed_load_rename_vec) <- paste0(
+    rep(c("T_Load_Removed_by_PWTP",
+          "T_Load_Removed_by_GWTP",
+          "T_GW_Load_Build_Up_EBFR_US",
+          "T_GW_Load_Build_Up_Diversion",
+          "T_GW_Load_Build_Up_EBFR_DS"),
+        each = 12),
+    "_CT[",
+    rep(cts, 5),
+    "]"
+  )
+  
+  # Storage renaming 
+  storage_rename_vec <- paste0(
+    rep(c("Total_Mass_Main_Pit_CT",
+          "Intermediate_Pit_Water_CT.Mass_in_Pathway",
+          "Main_WRD_Pond_CT.Mass_in_Pathway",
+          "Intermediate_WRD_Pond_CT.Mass_in_Pathway"
+          ), each = 12),
+    "[",
+    rep(cts, 4),
+    "]"
+  )
+  names(storage_rename_vec) <- paste0(
+    rep(c("Main_Pit_CT",
+          "Intermediate_Pit_CT",
+          "Main_WRD_CT",
+          "Intermediate_WRD_CT"
+    ), each = 12),
+    "[",
+    rep(cts, 4),
+    "]"
+  )
+  
+  # Create all summary table for flowsheet ----
+  # Daily values of all flowpath and loads in m3/day and kg/day
+  flowsheet_dfs <- reactiveValues(flow = NULL, load = NULL,
+                                  storage_flow = NULL, storage_load = NULL)
+  observeEvent(input$ava_xlsx$datapath, {
+    show_modal_spinner(spin = "fingerprint",
+                       color = "blue2",
+                       text = "Cleaning WLBM Results ...")
+    # if one of them is available the rest also will be available
+    req(all_wlbm_data$main_pit$inflow)
+    
+    # m3/day water flows
+    flow_df <- all_wlbm_data$main_pit$inflow %>%
+      left_join(all_wlbm_data$main_pit$outflow, by = "Date") %>%
+      left_join(all_wlbm_data$interm_pit$inflow, by = "Date") %>%
+      left_join(all_wlbm_data$interm_pit$outflow, by = "Date") %>%
+      left_join(all_wlbm_data$main_wrd$inflow, by = "Date") %>%
+      left_join(all_wlbm_data$main_wrd$outflow, by = "Date") %>%
+      left_join(all_wlbm_data$interm_wrd$inflow, by = "Date") %>%
+      left_join(all_wlbm_data$interm_wrd$outflow, by = "Date") %>%
+      left_join(all_wlbm_data$gwtp$inflow, by = "Date") %>%
+      left_join(all_wlbm_data$gwtp$outflow, by = "Date") %>%
+      left_join(all_wlbm_data$pwtp$inflow, by = "Date") %>%
+      left_join(all_wlbm_data$pwtp$outflow, by = "Date") %>%
+      left_join(all_wlbm_data$ebfr_us$inflow, by = "Date") %>%
+      left_join(all_wlbm_data$ebfr_us$outflow, by = "Date") %>%
+      left_join(all_wlbm_data$ebfr_ds$inflow, by = "Date") %>%
+      left_join(all_wlbm_data$ebfr_ds$outflow, by = "Date") %>%
+      left_join(all_wlbm_data$div_channel$inflow, by = "Date") %>%
+      left_join(all_wlbm_data$div_channel$outflow, by = "Date") %>%
+      left_join(all_wlbm_data$gs$inflow, by = "Date") %>%
+      left_join(all_wlbm_data$gs$outflow, by = "Date") %>%
+      rename_with(~ gsub("\\.x$", "", .), everything()) %>%
+      pivot_longer(cols = !Date, names_to = "Flow_Name", values_to = "Flow") %>%
+      mutate(Flow = Flow * 24 * 3600) %>%
+      dplyr::filter(Flow_Name %in% flowsheet_loc$Flow_Name)
+    
+    # kg/day loads for constituents
+    load_df <- all_wlbm_data$main_pit$inload %>%
+      left_join(all_wlbm_data$main_pit$outload, by = "Date") %>%
+      left_join(all_wlbm_data$interm_pit$inload, by = "Date") %>%
+      left_join(all_wlbm_data$interm_pit$outload, by = "Date") %>%
+      left_join(all_wlbm_data$main_wrd$inload, by = "Date") %>%
+      left_join(all_wlbm_data$main_wrd$outload, by = "Date") %>%
+      left_join(all_wlbm_data$interm_wrd$inload, by = "Date") %>%
+      left_join(all_wlbm_data$interm_wrd$outload, by = "Date") %>%
+      left_join(all_wlbm_data$gwtp$inload, by = "Date") %>%
+      left_join(all_wlbm_data$gwtp$outload, by = "Date") %>%
+      left_join(all_wlbm_data$pwtp$inload, by = "Date") %>%
+      left_join(all_wlbm_data$pwtp$outload, by = "Date") %>%
+      left_join(all_wlbm_data$ebfr_us$inload, by = "Date") %>%
+      left_join(all_wlbm_data$ebfr_us$outload, by = "Date") %>%
+      left_join(all_wlbm_data$ebfr_ds$inload, by = "Date") %>%
+      left_join(all_wlbm_data$ebfr_ds$outload, by = "Date") %>%
+      left_join(all_wlbm_data$div_channel$inload, by = "Date") %>%
+      left_join(all_wlbm_data$div_channel$outload, by = "Date") %>%
+      left_join(all_wlbm_data$gs$inload, by = "Date") %>%
+      left_join(all_wlbm_data$gs$outload, by = "Date") %>%
+      rename_with(~ gsub("\\.x$", "", .), everything()) %>%
+      dplyr::select(-ends_with(".y")) %>%
+      rename(any_of(rename_vec_vf)) %>%
+      rename(any_of(removed_load_rename_vec)) %>%
+      pivot_longer(cols = !Date, names_to = c("Flow_Name", "Constituent"),
+                   values_to = "Load", names_pattern = "(.*)_CT\\[(.*)\\]") %>%
+      dplyr::filter(Flow_Name %in% flowsheet_loc$Flow_Name)
+    
+    storageflow_df <- all_wlbm_data$ponds_water %>%
+      dplyr::select(c(Date, Main_Pit_Water, Intermediate_Pit_Water,
+                      Main_WRD_Pond, Intermediate_WRD_Pond)) %>%
+      rename(Main_Pit = Main_Pit_Water,
+             Intermediate_Pit = Intermediate_Pit_Water,
+             Main_WRD = Main_WRD_Pond,
+             Intermediate_WRD = Intermediate_WRD_Pond) %>%
+    pivot_longer(cols = !Date, names_to = "Flow_Name", values_to = "Flow") %>%
+    mutate(Flow = Flow * 24 * 3600)
+    
+    storageload_df <- all_wlbm_data$ponds_load %>%
+      dplyr::select(c("Date", 
+                      starts_with(c("Total_Mass_Main_Pit_CT",
+                                    "Intermediate_Pit_Water_CT.Mass_in_Pathway",
+                                    "Main_WRD_Pond_CT.Mass_in_Pathway",
+                                    "Intermediate_WRD_Pond_CT.Mass_in_Pathway")))) %>%
+      rename(any_of(storage_rename_vec)) %>%
+      pivot_longer(cols = !Date, names_to = c("Flow_Name", "Constituent"),
+                   values_to = "Load", names_pattern = "(.*)_CT\\[(.*)\\]")
+      
+    flowsheet_dfs$flow <- flow_df
+    flowsheet_dfs$storage_flow <- storageflow_df
+    flowsheet_dfs$load <- load_df
+    flowsheet_dfs$storage_load <- storageload_df
+    remove_modal_spinner()
+  })
+  
   # ObserveEvent 01-01: Populate unit options ----
+  # Reactive adjustments
   observeEvent(input$var_flowchart, {
     req(input$var_flowchart)
     if (input$var_flowchart == "Water") {
       ### `flowchart_unit` ----
-      output$placeholder_unit_flowchart <- renderUI({
-        selectInput(
-          inputId = "flowchart_unit",
-          label = "Change Unit",
-          choices = c("L/s", "ML/year")
-        )
-      })
+      updateSelectInput(
+        session, 
+        "flowchart_unit",
+        label = "Change Unit",
+        choices = c("L/s", "ML/year"),
+        selected = "L/s"
+      )
     } else {
-      output$placeholder_unit_flowchart <- renderUI({
-        selectInput(
-          inputId = "flowchart_unit",
-          label = "Change Unit",
-          choices = c("kg/year", "t/year")
-        )
-      })
+      updateSelectInput(
+        session, 
+        "flowchart_unit",
+        label = "Change Unit",
+        choices = c("kg/year", "t/year"),
+        selected = "kg/year"
+      )
     }
-  }, priority = 9)
+  })
   
   # ObserveEvent 01-02 Flowchart ----
   # For now it only shows water flux in L/s
@@ -888,116 +1097,155 @@ server <- function(input, output, session) {
   observeEvent(
     input$up_flowchart,
     {
-      req(all_wlbm_data$main_pit, all_wlbm_data$interm_pit,
-          all_wlbm_data$main_wrd, all_wlbm_data$interm_wrd,
-          all_wlbm_data$gwtp, all_wlbm_data$pwtp, all_wlbm_data$ebfr_us,
-          all_wlbm_data$ebfr_ds, all_wlbm_data$div_channel, all_wlbm_data$gs,
-          input$date_range, input$wyear_month, input$var_flowchart,
-          input$flowchart_unit)
+      req(flowsheet_dfs$flow, flowsheet_dfs$load, flowsheet_dfs$storage_flow,
+          flowsheet_dfs$storage_load, input$date_range, input$wyear_month,
+          input$var_flowchart, input$flowchart_unit)
       month_idx <- which(month.abb == input$wyear_month)
+      tlt <- paste0(input$var_flowchart, " Flowsheet (",
+                    input$flowchart_unit, ")")
       subtlt <- paste0("Water year: ", input$wyear_month, "-",
                       ifelse(month_idx - 1  == 0, "Dec", month.abb[month_idx-1]),
                       ". Incomplete years ignored.")
       show_modal_spinner(spin = "cube-grid",
                          text = "Populating Flowsheet ...")
-      summary_df <- all_wlbm_data$main_pit$inflow %>%
-        left_join(all_wlbm_data$main_pit$outflow, by = "Date") %>%
-        left_join(all_wlbm_data$interm_pit$inflow, by = "Date") %>%
-        left_join(all_wlbm_data$interm_pit$outflow, by = "Date") %>%
-        left_join(all_wlbm_data$main_wrd$inflow, by = "Date") %>%
-        left_join(all_wlbm_data$main_wrd$outflow, by = "Date") %>%
-        left_join(all_wlbm_data$interm_wrd$inflow, by = "Date") %>%
-        left_join(all_wlbm_data$interm_wrd$outflow, by = "Date") %>%
-        left_join(all_wlbm_data$gwtp$inflow, by = "Date") %>%
-        left_join(all_wlbm_data$gwtp$outflow, by = "Date") %>%
-        left_join(all_wlbm_data$pwtp$inflow, by = "Date") %>%
-        left_join(all_wlbm_data$pwtp$outflow, by = "Date") %>%
-        left_join(all_wlbm_data$ebfr_us$inflow, by = "Date") %>%
-        left_join(all_wlbm_data$ebfr_us$outflow, by = "Date") %>%
-        left_join(all_wlbm_data$ebfr_ds$inflow, by = "Date") %>%
-        left_join(all_wlbm_data$ebfr_ds$outflow, by = "Date") %>%
-        left_join(all_wlbm_data$div_channel$inflow, by = "Date") %>%
-        left_join(all_wlbm_data$div_channel$outflow, by = "Date") %>%
-        left_join(all_wlbm_data$gs$inflow, by = "Date") %>%
-        left_join(all_wlbm_data$gs$outflow, by = "Date") %>%
-        rename_with(~ gsub("\\.x$", "", .), everything()) %>%
-        dplyr::select(
-          c("Date", flowsheet_loc$Flow_Name[1:(nrow(flowsheet_loc)-4)])
-        ) %>%
-        pivot_longer(cols = !Date, names_to = "Flow_Name", values_to = "Flow") %>%
-        mutate(Flow = Flow * (24*3600)) %>%
-        dplyr::filter(Date >= input$date_range[1],
-                      Date <= input$date_range[2]) %>%
-        mutate(Year = year(Date),
-               Month = month(Date),
-               Water_Year = ifelse(Month < month_idx, Year - 1, Year)) %>%
-        group_by(Flow_Name, Water_Year) %>%
-        summarise(
-          num_obs = n(),
-          WaterYear_Flow_m3y = sum(Flow),
-          .groups = "drop"
-        ) %>%
-        dplyr::filter(num_obs >= 365) %>% # only complete years
-        group_by(Flow_Name) %>%
-        summarise(
-          Mean_WaterYear_Flow_Ls = mean(WaterYear_Flow_m3y * 1000 / (num_obs*24*3600)),
-          .groups = "drop"
-        ) %>%
-        left_join(flowsheet_loc, by = "Flow_Name")
       
-      storage_df <- all_wlbm_data$ponds_water %>%
-        dplyr::select(c(Date, Main_Pit_Water, Intermediate_Pit_Water,
-                        Main_WRD_Pond, Intermediate_WRD_Pond)) %>%
-        dplyr::filter(Date >= input$date_range[1],
-                     Date <= input$date_range[2]) %>%
-        pivot_longer(cols = !Date, names_to = "Flow_Name", values_to = "Flow") %>%
-        mutate(Flow = Flow * (24*3600)) %>%
-        mutate(Year = year(Date),
-               Month = month(Date),
-               Water_Year = ifelse(Month < month_idx, Year - 1, Year)) %>%
-        group_by(Flow_Name, Water_Year) %>%
-        summarise(
-          num_obs = n(),
-          WaterYear_Flow_m3y = sum(Flow),
-          .groups = "drop"
-        ) %>%
-        dplyr::filter(num_obs >= 365) %>% # only complete years
-        group_by(Flow_Name) %>%
-        summarise(
-          Mean_WaterYear_Flow_Ls = mean(WaterYear_Flow_m3y * 1000 / (num_obs*24*3600)),
-          .groups = "drop"
-        ) %>%
-        left_join(flowsheet_loc, by = "Flow_Name")
+      if (input$var_flowchart == "Water") {
+        summary_df <- flowsheet_dfs$flow %>%
+          dplyr::filter(Date >= input$date_range[1],
+                        Date <= input$date_range[2]) %>%
+          mutate(Year = year(Date),
+                 Month = month(Date),
+                 Water_Year = ifelse(Month < month_idx, Year - 1, Year)) %>%
+          group_by(Flow_Name, Water_Year) %>%
+          summarise(
+            num_obs = n(),
+            WaterYear_Flow_m3y = sum(Flow),
+            .groups = "drop"
+          ) %>%
+          dplyr::filter(num_obs >= 365) %>% # only complete years
+          group_by(Flow_Name) %>%
+          summarise(
+            Mean_WaterYear_Flow_Ls = mean(WaterYear_Flow_m3y * 1000 / (num_obs*24*3600)),
+            Mean_WaterYear_Flow_MLy = mean(WaterYear_Flow_m3y * 1000 / 1e6),
+            .groups = "drop"
+          ) %>%
+          left_join(flowsheet_loc, by = "Flow_Name")
+        
+        storage_df <- flowsheet_dfs$storage_flow %>%
+          dplyr::filter(Date >= input$date_range[1],
+                        Date <= input$date_range[2]) %>%
+          mutate(Year = year(Date),
+                 Month = month(Date),
+                 Water_Year = ifelse(Month < month_idx, Year - 1, Year)) %>%
+          group_by(Flow_Name, Water_Year) %>%
+          summarise(
+            num_obs = n(),
+            WaterYear_Flow_m3y = sum(Flow),
+            .groups = "drop"
+          ) %>%
+          dplyr::filter(num_obs >= 365) %>% # only complete years
+          group_by(Flow_Name) %>%
+          summarise(
+            Mean_WaterYear_Flow_Ls = mean(WaterYear_Flow_m3y * 1000 / (num_obs*24*3600)),
+            Mean_WaterYear_Flow_MLy = mean(WaterYear_Flow_m3y * 1000 / 1e6),
+            .groups = "drop"
+          ) %>%
+          left_join(flowsheet_loc, by = "Flow_Name")
+        
+        if (input$flowchart_unit == "L/s") {
+          summary_df$WaterYear_Value <- summary_df$Mean_WaterYear_Flow_Ls
+          storage_df$WaterYear_Value <- storage_df$Mean_WaterYear_Flow_Ls
+          
+        } else {
+          summary_df$WaterYear_Value <- summary_df$Mean_WaterYear_Flow_MLy
+          storage_df$WaterYear_Value <- storage_df$Mean_WaterYear_Flow_MLy
+        }
+        
+      } else {
+        summary_df <- flowsheet_dfs$load %>%
+          dplyr::filter(Constituent == input$var_flowchart,
+                        Date >= input$date_range[1],
+                        Date <= input$date_range[2]) %>%
+          mutate(Year = year(Date),
+                 Month = month(Date),
+                 Water_Year = ifelse(Month < month_idx, Year - 1, Year)) %>%
+          group_by(Flow_Name, Water_Year) %>%
+          summarise(
+            num_obs = n(),
+            WaterYear_Load_kgy = sum(Load),
+            .groups = "drop"
+          ) %>%
+          dplyr::filter(num_obs >= 365) %>% # only complete years
+          group_by(Flow_Name) %>%
+          summarise(
+            Mean_WaterYear_Load_kgy = mean(WaterYear_Load_kgy),
+            Mean_WaterYear_Load_ty = mean(WaterYear_Load_kgy / 1000),
+            .groups = "drop"
+          ) %>%
+          left_join(flowsheet_loc, by = "Flow_Name")
+        
+        storage_df <- flowsheet_dfs$storage_load %>%
+          dplyr::filter(Constituent == input$var_flowchart,
+                        Date >= input$date_range[1],
+                        Date <= input$date_range[2]) %>%
+          mutate(Year = year(Date),
+                 Month = month(Date),
+                 Water_Year = ifelse(Month < month_idx, Year - 1, Year)) %>%
+          group_by(Flow_Name, Water_Year) %>%
+          summarise(
+            num_obs = n(),
+            WaterYear_Load_kgy = sum(Load),
+            .groups = "drop"
+          ) %>%
+          dplyr::filter(num_obs >= 365) %>% # only complete years
+          group_by(Flow_Name) %>%
+          summarise(
+            Mean_WaterYear_Load_kgy = mean(WaterYear_Load_kgy),
+            Mean_WaterYear_Load_ty = mean(WaterYear_Load_kgy / 1000),
+            .groups = "drop"
+          ) %>%
+          left_join(flowsheet_loc, by = "Flow_Name")
+        
+        if (input$flowchart_unit == "kg/year") {
+          summary_df$WaterYear_Value <- summary_df$Mean_WaterYear_Load_kgy
+          storage_df$WaterYear_Value <- storage_df$Mean_WaterYear_Load_kgy
+          
+        } else {
+          summary_df$WaterYear_Value <- summary_df$Mean_WaterYear_Load_ty
+          storage_df$WaterYear_Value <- storage_df$Mean_WaterYear_Load_ty
+        }
+      }
+      
       
       plt <- ggplot() +
         background_image(png::readPNG("www/RJ WLBM Flowsheet With Backgound.png")) +
         geom_text(data = summary_df, aes(x = X, y = Y, 
-                                         label = round(Mean_WaterYear_Flow_Ls, 1)),
+                                         label = my_comma(WaterYear_Value)),
                   size = 8/.pt) +
         geom_text(
           data = storage_df, 
           aes(
             x = X, y = Y, 
-            label = paste('Delta', "==", round(Mean_WaterYear_Flow_Ls, 1))
+            label = paste('Delta', "==", my_comma(WaterYear_Value))
           ),
           parse = TRUE, size = 10/.pt, color = "red3"
         ) +
-        scale_x_continuous(limits = c(0, 5973),
-                           breaks = seq(0, 5973, 100),
-                           minor_breaks = seq(0, 5973, 50)) +
-        scale_y_continuous(limits = c(0, 4098),
-                           breaks = seq(0, 4098, 100),
-                           minor_breaks = seq(0, 4098, 50)) +
-        labs(title = "Average Annual Flow (L/s)",
+        scale_x_continuous(limits = c(0, 6021),
+                           breaks = seq(0, 6021, 100),
+                           minor_breaks = seq(0, 6021, 50)) +
+        scale_y_continuous(limits = c(0, 4153),
+                           breaks = seq(0, 4153, 100),
+                           minor_breaks = seq(0, 4153, 50)) +
+        labs(title = tlt,
              subtitle = subtlt) +
         theme_void() +
         theme(plot.title = element_text(size = 24, face = "bold", hjust = 0.5),
               plot.subtitle = element_text(hjust = 0.5, size = 16))
       
-      ggsave("www/RJ WLBM Water Flowsheet.pdf", plt, width = 20.0694, height = 13.8431)
+      ggsave("www/RJ WLBM Generated Flowsheet.pdf", plt, width = 20.07, height = 14)
       output$flowchart <- renderUI({
         tags$iframe(style="height:100%; width:100%",
-                    src="RJ WLBM Water Flowsheet.pdf")
+                    src="RJ WLBM Generated Flowsheet.pdf")
       })
       remove_modal_spinner()
       showNotification("Flowsheet Updated!",
@@ -1010,10 +1258,6 @@ server <- function(input, output, session) {
   wlbm_df <- reactiveValues(inflow = NULL, outflow = NULL,
                             inload = NULL, outload = NULL,
                             inconc = NULL, outconc = NULL)
-  
-  # read look-up table to adjust load column names
-  lookup_df <- fread("Flow_to_Load_LookupTable.csv") %>%
-    mutate_if(is.character, function(x) ifelse(x == "", NA, x))
   
   # ObserveEvent 02: Selection of Storage & Constituents ----
   # Populate the fluxes & `wlbm_df`
@@ -1195,7 +1439,7 @@ server <- function(input, output, session) {
   # Rendering First Flow Chart ----
   output$flowchart <- renderUI({
     tags$iframe(style="height:100%; width:100%",
-                src="RJ WLBM Flowsheet.pdf")
+                src="RJ WLBM Flowsheet Adjusted.pdf")
   })
   
   # ObserveEvent 04: Date Labels ----
