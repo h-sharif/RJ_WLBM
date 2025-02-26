@@ -80,7 +80,7 @@ EBFR DS,T_PWTP_Effluent_to_EBFR,T_PWTP_Effluent_to_EBFR_CT,,
 EBFR DS,T_EWSF_W_Runoff_not_collected,T_EWSF_W_Runoff_not_collected_CT,1080,500
 EBFR DS,T_Gdw_to_EBFR_Channel_DS,T_Gdw_to_EBFR_Channel_DS_CT,900,750
 EBFR DS,T_Total_Inflow_at_GS327,T_Total_Inflow_at_GS327_CT,70,1440
-Ponds,Main_Pit,Main_Pit_Water_CT,4650,2650
-Ponds,Intermediate_Pit,Intermediate_Pit_Water_CT,1580,2650
-Ponds,Main_WRD,Main_WRD_Pond_CT,4510,1080
-Ponds,Intermediate_WRD,Intermediate_WRD_Pond_CT,2420,1080
+Ponds,Main_Pit,Main_Pit_Water_CT,4630,2650
+Ponds,Intermediate_Pit,Intermediate_Pit_Water_CT,1530,2650
+Ponds,Main_WRD,Main_WRD_Pond_CT,4470,1080
+Ponds,Intermediate_WRD,Intermediate_WRD_Pond_CT,2400,1080

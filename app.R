@@ -323,7 +323,7 @@ server <- function(input, output, session) {
       col_types = c("date", rep("numeric", 72))
     ) %>%
       na.omit() %>%
-      mutate_if(is.numeric, function(x) (lead(x, 1) - x) / (24 * 3600)) %>%
+      mutate_if(is.numeric, function(x) (lead(x, 1) - x)) %>%
       dplyr::filter(row_number() != n())
       
     
@@ -1223,10 +1223,12 @@ server <- function(input, output, session) {
                                          label = my_comma(WaterYear_Value)),
                   size = 8/.pt) +
         geom_text(
-          data = storage_df, 
+          data = storage_df %>%
+            mutate(deparsed_label = sapply(my_comma(WaterYear_Value), deparse)), 
           aes(
             x = X, y = Y, 
-            label = paste('Delta', "==", my_comma(WaterYear_Value))
+            label = paste('Delta', "==", deparsed_label), 
+                          
           ),
           parse = TRUE, size = 10/.pt, color = "red3"
         ) +
