@@ -1034,7 +1034,20 @@ server <- function(input, output, session) {
       rename(any_of(rename_vec_vf)) %>%
       rename(any_of(removed_load_rename_vec)) %>%
       pivot_longer(cols = !Date, names_to = c("Flow_Name", "Constituent"),
-                   values_to = "Load", names_pattern = "(.*)_CT\\[(.*)\\]") %>%
+                   values_to = "Load_est", names_pattern = "(.*)_CT\\[(.*)\\]") %>%
+      mutate(
+        Flow_Name = ifelse(Flow_Name == "T_GW_Load_Build_Up_EBFR_US",
+                           "T_Gdw_to_EBFR_Channel_US", Flow_Name),
+        Flow_Name = ifelse(Flow_Name == "T_GW_Load_Build_Up_Diversion",
+                           "T_Gdw_to_Diversion_Channel", Flow_Name),
+        Flow_Name = ifelse(Flow_Name == "T_GW_Load_Build_Up_EBFR_DS",
+                           "T_Gdw_to_EBFR_Channel_DS", Flow_Name),
+      ) %>%
+      group_by(Date, Flow_Name, Constituent) %>%
+      summarise(
+        Load = sum(Load_est),
+        .groups = "drop"
+      ) %>%
       dplyr::filter(Flow_Name %in% flowsheet_loc$Flow_Name)
     
     storageflow_df <- all_wlbm_data$ponds_water %>%
