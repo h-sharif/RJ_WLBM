@@ -1004,9 +1004,17 @@ server <- function(input, output, session) {
       left_join(all_wlbm_data$gs$inflow, by = "Date") %>%
       left_join(all_wlbm_data$gs$outflow, by = "Date") %>%
       rename_with(~ gsub("\\.x$", "", .), everything()) %>%
-      pivot_longer(cols = !Date, names_to = "Flow_Name", values_to = "Flow") %>%
-      mutate(Flow = Flow * 24 * 3600) %>%
+      pivot_longer(cols = !Date, names_to = "Flow_Name", values_to = "Flow_est") %>%
+      mutate(Flow_est = Flow_est * 24 * 3600) %>%
+      mutate(Flow_Name = ifelse(Flow_Name == "T_EWSF_W_Runoff_not_collected",
+                                "T_Runoff_GS200_to_GS327", Flow_Name)) %>%
+      group_by(Date, Flow_Name) %>%
+      summarise(
+        Flow = sum(Flow_est),
+        .groups = "drop"
+      ) %>%
       dplyr::filter(Flow_Name %in% flowsheet_loc$Flow_Name)
+
     
     # kg/day loads for constituents
     load_df <- all_wlbm_data$main_pit$inload %>%
@@ -1042,6 +1050,8 @@ server <- function(input, output, session) {
                            "T_Gdw_to_Diversion_Channel", Flow_Name),
         Flow_Name = ifelse(Flow_Name == "T_GW_Load_Build_Up_EBFR_DS",
                            "T_Gdw_to_EBFR_Channel_DS", Flow_Name),
+        Flow_Name = ifelse(Flow_Name == "T_EWSF_W_Runoff_not_collected",
+                           "T_Runoff_GS200_to_GS327", Flow_Name)
       ) %>%
       group_by(Date, Flow_Name, Constituent) %>%
       summarise(
@@ -1231,7 +1241,7 @@ server <- function(input, output, session) {
       
       
       plt <- ggplot() +
-        background_image(png::readPNG("www/RJ WLBM Flowsheet With Backgound.png")) +
+        background_image(png::readPNG("www/RJ WLBM Flowsheet Adjusted.png")) +
         geom_text(data = summary_df, aes(x = X, y = Y, 
                                          label = my_comma(WaterYear_Value)),
                   size = 8/.pt) +
@@ -1241,7 +1251,6 @@ server <- function(input, output, session) {
           aes(
             x = X, y = Y, 
             label = paste('Delta', "==", deparsed_label), 
-                          
           ),
           parse = TRUE, size = 10/.pt, color = "red3"
         ) +
