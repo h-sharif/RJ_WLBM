@@ -73,11 +73,10 @@ Diversion Channel,T_Browns_Release,T_Browns_Release_CT,1380,500
 Diversion Channel,T_Water_Diverted_from_EBFR,T_Water_Diverted_from_EBFR_CT,,
 Diversion Channel,T_Total_Inflow_Diversion,T_Total_Inflow_Diversion_CT,1170,1440
 EBFR DS,T_Total_Inflow_Diversion,T_Total_Inflow_Diversion_CT,,
-EBFR DS,T_Runoff_GS200_to_GS327,T_Runoff_GS200_to_GS327_CT,580,500
+EBFR DS,T_Runoff_GS200_to_GS327,T_Runoff_GS200_to_GS327_CT,580,680
 EBFR DS,T_DilutionH2O_for_GWTP_Outflow,T_DilutionH2O_for_GWTP_Outflow_CT,,
 EBFR DS,T_GWTP_Effluent_EBFR,T_GWTP_Effluent_EBFR_CT,,
 EBFR DS,T_PWTP_Effluent_to_EBFR,T_PWTP_Effluent_to_EBFR_CT,,
-EBFR DS,T_EWSF_W_Runoff_not_collected,T_EWSF_W_Runoff_not_collected_CT,1080,500
 EBFR DS,T_Gdw_to_EBFR_Channel_DS,T_Gdw_to_EBFR_Channel_DS_CT,900,750
 EBFR DS,T_Total_Inflow_at_GS327,T_Total_Inflow_at_GS327_CT,70,1440
 Ponds,Main_Pit,Main_Pit_Water_CT,4630,2650
