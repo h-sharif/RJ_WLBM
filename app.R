@@ -10,6 +10,7 @@ library(readxl)
 library(ggnewscale)
 library(ggpubr)
 library(scales)
+library(patchwork)
 theme_set(theme_bw())
 
 # UI ---------------------------------------------------------------------------
@@ -211,16 +212,6 @@ server <- function(input, output, session) {
     "#E31A1C", "green1", "#6A3D9A", "#FF7F00", "gold1", "deeppink1",
     "palegreen2", "darkorange4", "#FDBF6F", "khaki2", "maroon", "orchid1"
   )
-  
-  # Function to scale secondary axis
-  scale_function <- function(x, scale, shift){
-    return ((x)*scale - shift)
-  }
-  
-  # Function to scale secondary variable values
-  inv_scale_function <- function(x, scale, shift){
-    return ((x + shift)/scale)
-  }
   
   shinyalert(
     title = 'Welcome to the Dashboard!',
@@ -1625,110 +1616,56 @@ server <- function(input, output, session) {
     flux_name <- strsplit(input$chosen_flux, split = "T_")[[1]][2] %>%
       str_replace_all(., "_", " ")
     
+    plt1 <- df_plot$df1 %>%
+      ggplot(aes(x = Date, y = value, color = consit)) +
+      geom_line(linewidth = 0.6, alpha = 0.75) +
+      scale_color_manual(values = palette12[c(1:length(input$consit))],
+                         guide = guide_legend(order = 1,
+                                              alpha = 1)) +
+      scale_x_date(date_breaks = date_labs$breaks_major,
+                   date_minor_breaks = date_labs$breaks_minor,
+                   date_labels = date_labs$labels) +
+      scale_y_continuous(limits = c(0, NA),
+                         n.breaks = 5) +
+      labs(x = "", y = main_lab, color = "Constituent",
+           caption = paste("Flow Path:", flux_name)) +
+      theme_bw() +
+      theme(axis.title.y = element_text(face = "bold"),
+            legend.position = "right", legend.direction = "vertical",
+            plot.caption = element_text(face = "italic",
+                                        size = 10, vjust = 0, hjust = 0)) 
+    
     if (input$add_flow) {
       df_q <- df_plot$df2
       colnames(df_q)[ncol(df_q)] <- "Discharge"
       df_q$Discharge <- df_q$Discharge * 1000
+
+      plt2 <- ggplot(data = df_q, aes(x = Date)) +
+        scale_x_date(date_breaks = date_labs$breaks_major,
+                     date_minor_breaks = date_labs$breaks_minor,
+                     date_labels = date_labs$labels) +
+        scale_y_continuous(limits = c(0, NA),
+                           n.breaks = 5) +
+        geom_line(data = df_q,
+                  aes(y = Discharge, color = "Water"),
+                  linetype = "solid", linewidth = 0.6) +
+        scale_color_manual(
+          values = c("Water" = rgb(0.2, 0.2, 0.8, alpha = 0.75)),
+          guide = "none"
+        ) +
+        labs(x = "", y = "Daily Average Water Discharge (L/s)") +
+        theme_bw() +
+        theme(axis.title.y = element_text(face = "bold"),
+              legend.position = "top", legend.direction = "horizontal",
+              plot.caption = element_text(face = "italic",
+                                          size = 10, vjust = 0, hjust = 0)) 
+      plt <- plt2 + plt1 +
+        plot_layout(ncol = 1, heights = c(0.5, 0.5))
       
-      # adding secondary flow axis
-      max_first  <- max(df_plot$df1$value)
-      max_second <- max(df_q %>% pull(2))
-      min_first  <- min(df_plot$df1$value)
-      min_second <- min(df_q %>% pull(2))
-      scale = (max_second - min_second)/(max_first - min_first)
-      shift = min_first - min_second
-      
-      if (max_first == 0) {
-        scale = 1
-        shift = 0
-        return(
-          ggplot(data = df_q, aes(x = Date)) +
-            geom_line(data = df_plot$df1,
-                      aes(y = value, color = consit),
-                      linewidth = 0.6, alpha = 0.75) +
-            scale_color_manual(values = palette12[c(1:length(input$consit))],
-                               guide = guide_legend(order = 1,
-                                                    alpha = 1)) +
-            labs(color = "") +
-            new_scale_color() +
-            scale_x_date(date_breaks = date_labs$breaks_major,
-                         date_minor_breaks = date_labs$breaks_minor,
-                         date_labels = date_labs$labels) +
-            geom_line(data = df_q,
-                      aes(y = inv_scale_function(Discharge, scale, shift),
-                          color = "Water"),
-                      linetype = "dashed", linewidth = 0.6) +
-            scale_color_manual(
-              values = c("Water" = rgb(0.2, 0.2, 0.8, alpha = 0.75)),
-              guide = guide_legend(order = 2, alpha = 1)
-            ) +
-            labs(x = "", y = main_lab, color = "",
-                 caption = paste("Flow Path:", flux_name)) +
-            scale_y_continuous(limits = c(min_second, max_second),
-                               sec.axis = sec_axis(~scale_function(., scale, shift),
-                                                   name = expression("Daily Average Discharge (L/s)"))) +
-            theme_bw() +
-            theme(axis.title.y = element_text(face = "plain"),
-                  legend.position = "top", legend.direction = "horizontal",
-                  plot.caption = element_text(face = "italic",
-                                              size = 10, vjust = 0, hjust = 0))
-        )
-        
-      } else {
-        return(
-          ggplot(data = df_q, aes(x = Date)) +
-            geom_line(data = df_plot$df1,
-                      aes(y = value, color = consit),
-                      linewidth = 0.6, alpha = 0.75) +
-            scale_color_manual(values = palette12[c(1:length(input$consit))],
-                               guide = guide_legend(order = 1,
-                                                    alpha = 1)) +
-            labs(color = "") +
-            new_scale_color() +
-            scale_x_date(date_breaks = date_labs$breaks_major,
-                         date_minor_breaks = date_labs$breaks_minor,
-                         date_labels = date_labs$labels) +
-            geom_line(data = df_q,
-                      aes(y = inv_scale_function(Discharge, scale, shift),
-                          color = "Water"),
-                      linetype = "dashed", linewidth = 0.6) +
-            scale_color_manual(
-              values = c("Water" = rgb(0.2, 0.2, 0.8, alpha = 0.75)),
-              guide = guide_legend(order = 2, alpha = 1)
-            ) +
-            labs(x = "", y = main_lab, color = "",
-                 caption = paste("Flow Path:", flux_name)) +
-            scale_y_continuous(limits = c(min_first, max_first),
-                               sec.axis = sec_axis(~scale_function(., scale, shift),
-                                                   name = expression("Daily Average Discharge (L/s)"))) +
-            theme_bw() +
-            theme(axis.title.y = element_text(face = "plain"),
-                  legend.position = "top", legend.direction = "horizontal",
-                  plot.caption = element_text(face = "italic",
-                                              size = 10, vjust = 0, hjust = 0))
-        )
-      }
-      
+      return(plt)
       
     } else {
-      return(
-        df_plot$df1 %>%
-          ggplot(aes(x = Date, y = value, color = consit)) +
-          geom_line(linewidth = 0.6, alpha = 0.75) +
-          scale_color_manual(values = palette12[c(1:length(input$consit))],
-                             guide = guide_legend(order = 1,
-                                                  alpha = 1)) +
-          scale_x_date(date_breaks = date_labs$breaks_major,
-                       date_minor_breaks = date_labs$breaks_minor,
-                       date_labels = date_labs$labels) +
-          labs(x = "", y = main_lab, color = "",
-               caption = paste("Flow Path:", flux_name)) +
-          theme_bw() +
-          theme(axis.title.y = element_text(face = "plain"),
-                legend.position = "top", legend.direction = "horizontal",
-                plot.caption = element_text(face = "italic",
-                                            size = 10, vjust = 0, hjust = 0)) 
-      )
+      return(plt1)
     }
   })
   
