@@ -67,14 +67,14 @@ Groundwater Treatment Plant,In,T_EWSF_Pond_to_GWTP,T_EWSF_Pond_to_GWTP_CT,
 Groundwater Treatment Plant,In,T_Main_WRD_Pond_to_GWTP,T_Main_WRD_Pond_to_GWTP_CT,
 Groundwater Treatment Plant,In,T_Actual_SIS_Withdrawal_Rate,T_Actual_SIS_WithdrawalRate_CT,T_Actual_SIS_Withdrawal_Rate_CT
 Groundwater Treatment Plant,Out,T_GWTP_to_Water_Needs,T_GWTP_to_Water_Needs_CT,
-Groundwater Treatment Plant,Out,T_GWTP_Effluent_EBFR,T_GWTP_effluent_EBFR_CT,
+Groundwater Treatment Plant,Out,T_GWTP_Effluent_EBFR,T_GWTP_effluent_EBFR_CT,T_GWTP_Effluent_EBFR_CT
 Groundwater Treatment Plant,Out,T_TreatedWater_to_MainWRD_pond,T_TreatedwaterToMainWRDPond_CT,T_TreatedWater_to_MainWRD_pond_CT
 Groundwater Treatment Plant,Out,,T_Load_Removed_by_GWTP,
-Potable Water Treatment Plant,In,T_Dewater_MainPit_via_PWTP,T_Dewater_MainPit_via_PWTP_CT,
-Potable Water Treatment Plant,Out,T_PWTP_to_Water_Needs,T_PWTP_to_Water_Needs_CT,
-Potable Water Treatment Plant,Out,T_PWTP_to_top_up_IntermPit,T_PWTP_to_top_up_IntermPit_CT,
-Potable Water Treatment Plant,Out,T_PWTP_Effluent_to_EBFR,T_PWTP_effluent_to_EBFR_CT,
-Potable Water Treatment Plant,Out,,T_Load_Removed_by_PWTP,
+Pit Water Treatment Plant,In,T_Dewater_MainPit_via_PWTP,T_Dewater_MainPit_via_PWTP_CT,
+Pit Water Treatment Plant,Out,T_PWTP_to_Water_Needs,T_PWTP_to_Water_Needs_CT,
+Pit Water Treatment Plant,Out,T_PWTP_to_top_up_IntermPit,T_PWTP_to_top_up_IntermPit_CT,
+Pit Water Treatment Plant,Out,T_PWTP_Effluent_to_EBFR,T_PWTP_effluent_to_EBFR_CT,T_PWTP_Effluent_to_EBFR_CT
+Pit Water Treatment Plant,Out,,T_Load_Removed_by_PWTP,
 EBFR US,In,T_Runoff_EBFR_US,T_Runoff_EBFR_US_CT,
 EBFR US,In,T_Dysons_WRD_Pond_Overflow,T_DysonsWRD_Pond_Overflow_CT,T_Dysons_WRD_Pond_Overflow_CT
 EBFR US,In,T_InterflowQ_from_CoveredDyWRD,T_InterflowQFromCoveredDWRD_CT,T_InterflowQ_from_CoveredDyWRD_CT
