@@ -23,7 +23,7 @@ ui <- page_navbar(
       img(src = 'logo.png',
           title = "", height = "70px"),
       style = "padding-top:0px; padding-bottom:0px;"),
-    helpText("Updated for v3.44", br(), 
+    helpText("Updated for v3.48", br(), 
              "For queries contact: hsharif@robertsongeo.com"),
     
     ### `ava_xlsx` ----
@@ -920,9 +920,9 @@ server <- function(input, output, session) {
   removed_load_rename_vec <- paste0(
     rep(c("T_Load_Removed_by_PWTP",
           "T_Load_Removed_by_GWTP",
-          "T_GW_Load_Build_Up_EBFR_US",
-          "T_GW_Load_Build_Up_Diversion",
-          "T_GW_Load_Build_Up_EBFR_DS"),
+          "T_DepositedLoad_BackTo_EBFR_US",
+          "T_DepositedLoadBackToDiversion",
+          "T_DepositedLoad_BackTo_EBFR_DS"),
         each = 12),
     "[",
     rep(cts, 5),
@@ -931,9 +931,9 @@ server <- function(input, output, session) {
   names(removed_load_rename_vec) <- paste0(
     rep(c("T_Load_Removed_by_PWTP",
           "T_Load_Removed_by_GWTP",
-          "T_GW_Load_Build_Up_EBFR_US",
-          "T_GW_Load_Build_Up_Diversion",
-          "T_GW_Load_Build_Up_EBFR_DS"),
+          "T_DepositedLoad_BackTo_EBFR_US",
+          "T_DepositedLoadBackToDiversion",
+          "T_DepositedLoad_BackTo_EBFR_DS"),
         each = 12),
     "_CT[",
     rep(cts, 5),
@@ -1035,11 +1035,11 @@ server <- function(input, output, session) {
       pivot_longer(cols = !Date, names_to = c("Flow_Name", "Constituent"),
                    values_to = "Load_est", names_pattern = "(.*)_CT\\[(.*)\\]") %>%
       mutate(
-        Flow_Name = ifelse(Flow_Name == "T_GW_Load_Build_Up_EBFR_US",
+        Flow_Name = ifelse(Flow_Name == "T_DepositedLoad_BackTo_EBFR_US",
                            "T_Gdw_to_EBFR_Channel_US", Flow_Name),
-        Flow_Name = ifelse(Flow_Name == "T_GW_Load_Build_Up_Diversion",
+        Flow_Name = ifelse(Flow_Name == "T_DepositedLoadBackToDiversion",
                            "T_Gdw_to_Diversion_Channel", Flow_Name),
-        Flow_Name = ifelse(Flow_Name == "T_GW_Load_Build_Up_EBFR_DS",
+        Flow_Name = ifelse(Flow_Name == "T_DepositedLoad_BackTo_EBFR_DS",
                            "T_Gdw_to_EBFR_Channel_DS", Flow_Name),
         Flow_Name = ifelse(Flow_Name == "T_EWSF_W_Runoff_not_collected",
                            "T_Runoff_GS200_to_GS327", Flow_Name)
