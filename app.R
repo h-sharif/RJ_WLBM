@@ -1115,11 +1115,12 @@ server <- function(input, output, session) {
           flowsheet_dfs$storage_load, input$date_range, input$wyear_month,
           input$var_flowchart, input$flowchart_unit)
       month_idx <- which(month.abb == input$wyear_month)
-      tlt <- paste0(input$var_flowchart, " Flowsheet (",
+      var_print <- ifelse(input$var_flowchart == "Water", "Discharge",
+                          paste(input$var_flowchart, "Load")) 
+      tlt <- paste0("Average Annual ", var_print, " (",
                     input$flowchart_unit, ")")
-      subtlt <- paste0("Water year: ", input$wyear_month, "-",
-                      ifelse(month_idx - 1  == 0, "Dec", month.abb[month_idx-1]),
-                      ". Incomplete years ignored.")
+      subtlt <- paste0("Date interval of interest: ", input$date_range[1], 
+                       " to ", input$date_range[2])
       show_modal_spinner(spin = "cube-grid",
                          text = "Populating Flowsheet ...")
       
