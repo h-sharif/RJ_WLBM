@@ -23,7 +23,7 @@ ui <- page_navbar(
       img(src = 'logo.png',
           title = "", height = "70px"),
       style = "padding-top:0px; padding-bottom:0px;"),
-    helpText("Updated for v3.48", br(), 
+    helpText("Updated for v3.51", br(), 
              "For queries contact: hsharif@robertsongeo.com"),
     
     ### `ava_xlsx` ----
@@ -236,7 +236,9 @@ server <- function(input, output, session) {
     div_channel = NULL,
     gs = NULL,
     ponds_water = NULL,
-    ponds_load = NULL
+    ponds_load = NULL,
+    diluted_gwtp_water = NULL,
+    diluted_gwtp_load = NULL
   )
   
   # ObserveEvent 00: Selecting Model Version
@@ -262,7 +264,7 @@ server <- function(input, output, session) {
       "EBFR_DS_Load_Inputs", "EBFR_DS_Load_Outputs", "DiversionChannel_Q_Inputs",
       "DiversionChannel_Q_Outputs", "Diversion_Load_Inputs",
       "Diversion_Load_Outputs", "GS097_Q_Inputs", "GS097_Q_Outputs",
-      "GS097_Load_Inputs", "GS097_Load_Outputs"
+      "GS097_Load_Inputs", "GS097_Load_Outputs", "Diluted_GWTP_discharge"
     )
     if (sum(!(needed_sheets %in% available_sheets) != 0)){
       showNotification("Selected model results is corrupted!",
@@ -307,7 +309,6 @@ server <- function(input, output, session) {
       mutate_if(is.numeric, function(x) (lead(x, 1) - x) / (24 * 3600)) %>%
       dplyr::filter(row_number() != n())
     
-    rename_vec <- 
     ponds_load_data <- read_excel(
       input$ava_xlsx$datapath,
       sheet = "Ponds_Load",
@@ -316,6 +317,21 @@ server <- function(input, output, session) {
       na.omit() %>%
       mutate_if(is.numeric, function(x) (lead(x, 1) - x)) %>%
       dplyr::filter(row_number() != n())
+    
+    diluted_gwtp_data <- read_excel(
+      input$ava_xlsx$datapath,
+      sheet = "Diluted_GWTP_discharge",
+      col_types = c("date", rep("numeric", 13))
+    ) %>%
+      na.omit() %>%
+      mutate_if(is.numeric, function(x) (lead(x, 1) - x)) %>%
+      dplyr::filter(row_number() != n())
+    
+    diluted_gwtp_water_data <- diluted_gwtp_data %>%
+      dplyr::select(c(1, 2)) %>%
+      mutate_if(is.numeric, function(x) x / (24*3600))
+    diluted_gwtp_load_data <- diluted_gwtp_data %>%
+      dplyr::select(c(1, 3:14))
       
     
     main_pit_data <- list(
@@ -881,6 +897,8 @@ server <- function(input, output, session) {
     all_wlbm_data$gs <- gs_data
     all_wlbm_data$ponds_water <- ponds_water_data
     all_wlbm_data$ponds_load <- ponds_load_data
+    all_wlbm_data$diluted_gwtp_water <- diluted_gwtp_water_data
+    all_wlbm_data$diluted_gwtp_load <- diluted_gwtp_load_data
     remove_modal_spinner()
   }, priority = 11)
   
@@ -994,6 +1012,7 @@ server <- function(input, output, session) {
       left_join(all_wlbm_data$div_channel$outflow, by = "Date") %>%
       left_join(all_wlbm_data$gs$inflow, by = "Date") %>%
       left_join(all_wlbm_data$gs$outflow, by = "Date") %>%
+      left_join(all_wlbm_data$diluted_gwtp_water, by = "Date") %>%
       rename_with(~ gsub("\\.x$", "", .), everything()) %>%
       pivot_longer(cols = !Date, names_to = "Flow_Name", values_to = "Flow_est") %>%
       mutate(Flow_est = Flow_est * 24 * 3600) %>%
@@ -1028,6 +1047,7 @@ server <- function(input, output, session) {
       left_join(all_wlbm_data$div_channel$outload, by = "Date") %>%
       left_join(all_wlbm_data$gs$inload, by = "Date") %>%
       left_join(all_wlbm_data$gs$outload, by = "Date") %>%
+      left_join(all_wlbm_data$diluted_gwtp_load, by = "Date") %>%
       rename_with(~ gsub("\\.x$", "", .), everything()) %>%
       dplyr::select(-ends_with(".y")) %>%
       rename(any_of(rename_vec_vf)) %>%
