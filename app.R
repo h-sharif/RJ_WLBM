@@ -23,7 +23,7 @@ ui <- page_navbar(
       img(src = 'logo.png',
           title = "", height = "70px"),
       style = "padding-top:0px; padding-bottom:0px;"),
-    helpText("Updated for v3.51", br(), 
+    helpText("Updated for v3.52", br(), 
              "For queries contact: hsharif@robertsongeo.com"),
     
     ### `ava_xlsx` ----
@@ -343,7 +343,11 @@ server <- function(input, output, session) {
         na.omit() %>%
         mutate(Date = as.Date(Date)) %>%
         mutate_if(is.numeric, function(x) (lead(x, 1) - x) / (24 * 3600)) %>%
-        dplyr::filter(row_number() != n()),
+        dplyr::filter(row_number() != n()) %>%
+        mutate(
+          T_Gdw_Inflow_Main_Pit = T_RegionalGroundwaterInflow_MP +
+            T_GW_Inflows_to_Main_Pit
+        ),
       
       outflow = read_excel(
         input$ava_xlsx$datapath,
@@ -363,7 +367,33 @@ server <- function(input, output, session) {
         na.omit() %>%
         mutate(Date = as.Date(Date)) %>%
         mutate_if(is.numeric, function(x) (lead(x, 1) - x)) %>%
-        dplyr::filter(row_number() != n()),
+        dplyr::filter(row_number() != n()) %>%
+        mutate(
+          `T_Gdw_Inflow_Main_Pit_CT[SO4]` = `T_Regional_GW_Inflow_MP_CT[SO4]` +
+            `T_GW_InducedByPitDewatering_CT[SO4]`,
+          `T_Gdw_Inflow_Main_Pit_CT[Ca]` = `T_Regional_GW_Inflow_MP_CT[Ca]` +
+            `T_GW_InducedByPitDewatering_CT[Ca]`,
+          `T_Gdw_Inflow_Main_Pit_CT[Mg]` = `T_Regional_GW_Inflow_MP_CT[Mg]` +
+            `T_GW_InducedByPitDewatering_CT[Mg]`,
+          `T_Gdw_Inflow_Main_Pit_CT[Al]` = `T_Regional_GW_Inflow_MP_CT[Al]` +
+            `T_GW_InducedByPitDewatering_CT[Al]`,
+          `T_Gdw_Inflow_Main_Pit_CT[Fe]` = `T_Regional_GW_Inflow_MP_CT[Fe]` +
+            `T_GW_InducedByPitDewatering_CT[Fe]`,
+          `T_Gdw_Inflow_Main_Pit_CT[Cu]` = `T_Regional_GW_Inflow_MP_CT[Cu]` +
+            `T_GW_InducedByPitDewatering_CT[Cu]`,
+          `T_Gdw_Inflow_Main_Pit_CT[Co]` = `T_Regional_GW_Inflow_MP_CT[Co]` +
+            `T_GW_InducedByPitDewatering_CT[Co]`,
+          `T_Gdw_Inflow_Main_Pit_CT[Mn]` = `T_Regional_GW_Inflow_MP_CT[Mn]` +
+            `T_GW_InducedByPitDewatering_CT[Mn]`,
+          `T_Gdw_Inflow_Main_Pit_CT[Ni]` = `T_Regional_GW_Inflow_MP_CT[Ni]` +
+            `T_GW_InducedByPitDewatering_CT[Ni]`,
+          `T_Gdw_Inflow_Main_Pit_CT[U]` = `T_Regional_GW_Inflow_MP_CT[U]` +
+            `T_GW_InducedByPitDewatering_CT[U]`,
+          `T_Gdw_Inflow_Main_Pit_CT[Zn]` = `T_Regional_GW_Inflow_MP_CT[Zn]` +
+            `T_GW_InducedByPitDewatering_CT[Zn]`,
+          `T_Gdw_Inflow_Main_Pit_CT[Acidity]` = `T_Regional_GW_Inflow_MP_CT[Acidity]` +
+            `T_GW_InducedByPitDewatering_CT[Acidity]`
+        ),
       
       outload = read_excel(
         input$ava_xlsx$datapath,
@@ -390,12 +420,16 @@ server <- function(input, output, session) {
       outflow = read_excel(
         input$ava_xlsx$datapath,
         sheet = "Interm_Pit_Flow_Outputs",
-        col_types = c("date", rep("numeric", 6))
+        col_types = c("date", rep("numeric", 7))
       ) %>%
         na.omit() %>%
         mutate(Date = as.Date(Date)) %>%
         mutate_if(is.numeric, function(x) (lead(x, 1) - x) / (24 * 3600)) %>%
-        dplyr::filter(row_number() != n()),
+        dplyr::filter(row_number() != n()) %>%
+        mutate(
+          T_Gdw_Outflow_InterPit = T_Gdw_Outflow_InterPit +
+            T_Pre_Rehab_GdwOutflow_IntePit
+        ),
       
       inload = read_excel(
         input$ava_xlsx$datapath,
@@ -818,7 +852,11 @@ server <- function(input, output, session) {
         na.omit() %>%
         mutate(Date = as.Date(Date)) %>%
         mutate_if(is.numeric, function(x) (lead(x, 1) - x) / (24 * 3600)) %>%
-        dplyr::filter(row_number() != n()),
+        dplyr::filter(row_number() != n()) %>%
+        mutate(
+          T_Channel_Leakage_to_Main_Pit = 0,
+          T_Channel_Leakage_to_Interm_Pit = 0
+        ),
       
       inload = read_excel(
         input$ava_xlsx$datapath,
@@ -838,7 +876,33 @@ server <- function(input, output, session) {
         na.omit() %>%
         mutate(Date = as.Date(Date)) %>%
         mutate_if(is.numeric, function(x) (lead(x, 1) - x)) %>%
-        dplyr::filter(row_number() != n())
+        dplyr::filter(row_number() != n()) %>%
+        mutate(
+          `T_Channel_Leakage_to_Main_Pit_CT[SO4]` = 0,
+          `T_Channel_Leakage_to_Main_Pit_CT[Ca]` = 0,
+          `T_Channel_Leakage_to_Main_Pit_CT[Mg]` = 0,
+          `T_Channel_Leakage_to_Main_Pit_CT[Al]` = 0,
+          `T_Channel_Leakage_to_Main_Pit_CT[Fe]` = 0,
+          `T_Channel_Leakage_to_Main_Pit_CT[Cu]` = 0,
+          `T_Channel_Leakage_to_Main_Pit_CT[Co]` = 0,
+          `T_Channel_Leakage_to_Main_Pit_CT[Mn]` = 0,
+          `T_Channel_Leakage_to_Main_Pit_CT[Ni]` = 0,
+          `T_Channel_Leakage_to_Main_Pit_CT[U]` = 0,
+          `T_Channel_Leakage_to_Main_Pit_CT[Zn]` = 0,
+          `T_Channel_Leakage_to_Main_Pit_CT[Acidity]` = 0,
+          `T_Channel_Leakage_to_Interm_Pit_CT[SO4]` = 0,
+          `T_Channel_Leakage_to_Interm_Pit_CT[Ca]` = 0,
+          `T_Channel_Leakage_to_Interm_Pit_CT[Mg]` = 0,
+          `T_Channel_Leakage_to_Interm_Pit_CT[Al]` = 0,
+          `T_Channel_Leakage_to_Interm_Pit_CT[Fe]` = 0,
+          `T_Channel_Leakage_to_Interm_Pit_CT[Cu]` = 0,
+          `T_Channel_Leakage_to_Interm_Pit_CT[Co]` = 0,
+          `T_Channel_Leakage_to_Interm_Pit_CT[Mn]` = 0,
+          `T_Channel_Leakage_to_Interm_Pit_CT[Ni]` = 0,
+          `T_Channel_Leakage_to_Interm_Pit_CT[U]` = 0,
+          `T_Channel_Leakage_to_Interm_Pit_CT[Zn]` = 0,
+          `T_Channel_Leakage_to_Interm_Pit_CT[Acidity]` = 0
+        )
     )
     
     gs_data <- list(
@@ -1062,7 +1126,9 @@ server <- function(input, output, session) {
         Flow_Name = ifelse(Flow_Name == "T_DepositedLoad_BackTo_EBFR_DS",
                            "T_Gdw_to_EBFR_Channel_DS", Flow_Name),
         Flow_Name = ifelse(Flow_Name == "T_EWSF_W_Runoff_not_collected",
-                           "T_Runoff_GS200_to_GS327", Flow_Name)
+                           "T_Runoff_GS200_to_GS327", Flow_Name),
+        Flow_Name = ifelse(Flow_Name == "T_GW_Inflow_InterPit",
+                           "T_Gdw_Inflows_Inter_Pit", Flow_Name)
       ) %>%
       group_by(Date, Flow_Name, Constituent) %>%
       summarise(
@@ -1139,7 +1205,7 @@ server <- function(input, output, session) {
                           paste(input$var_flowchart, "Load")) 
       tlt <- paste0("Average Annual ", var_print, " (",
                     input$flowchart_unit, ")")
-      subtlt <- paste0("Date interval of interest: ", input$date_range[1], 
+      subtlt <- paste0("Period: ", input$date_range[1], 
                        " to ", input$date_range[2])
       show_modal_spinner(spin = "cube-grid",
                          text = "Populating Flowsheet ...")
@@ -1254,9 +1320,9 @@ server <- function(input, output, session) {
       
       plt <- ggplot() +
         background_image(png::readPNG("www/RJ WLBM Flowsheet Adjusted.png")) +
-        geom_text(data = summary_df, aes(x = X, y = Y, 
+        geom_text(data = summary_df, aes(x = X, y = Y, angle = angle,
                                          label = my_comma(WaterYear_Value)),
-                  size = 8/.pt) +
+                  size = 10/.pt) +
         geom_text(
           data = storage_df %>%
             mutate(deparsed_label = sapply(my_comma(WaterYear_Value), deparse)), 
@@ -1264,21 +1330,22 @@ server <- function(input, output, session) {
             x = X, y = Y, 
             label = paste('Delta', "==", deparsed_label), 
           ),
-          parse = TRUE, size = 10/.pt, color = "red3"
+          parse = TRUE, size = 12/.pt, color = "red3"
         ) +
-        scale_x_continuous(limits = c(0, 6021),
-                           breaks = seq(0, 6021, 100),
-                           minor_breaks = seq(0, 6021, 50)) +
-        scale_y_continuous(limits = c(0, 4153),
-                           breaks = seq(0, 4153, 100),
-                           minor_breaks = seq(0, 4153, 50)) +
+        scale_x_continuous(limits = c(0, 3976),
+                           breaks = seq(0, 3976, 100),
+                           minor_breaks = seq(0, 3976, 50)) +
+        scale_y_continuous(limits = c(0, 2455),
+                           breaks = seq(0, 2455, 100),
+                           minor_breaks = seq(0, 2455, 50)) +
         labs(title = tlt,
              subtitle = subtlt) +
         theme_void() +
         theme(plot.title = element_text(size = 24, face = "bold", hjust = 0.5),
               plot.subtitle = element_text(hjust = 0.5, size = 16))
       
-      ggsave("www/RJ WLBM Generated Flowsheet.pdf", plt, width = 20.07, height = 14)
+      ggsave("www/RJ WLBM Generated Flowsheet.pdf", plt, width = 19.875,
+             height = 13)
       output$flowchart <- renderUI({
         tags$iframe(style="height:100%; width:100%",
                     src="RJ WLBM Generated Flowsheet.pdf")
